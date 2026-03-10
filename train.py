@@ -86,18 +86,12 @@ class OptAEGV3(nn.Module):
             self.mfactor.normal_(0.0, 0.05)
 
     def forward(self, data):
-        shape = data.size()
-        data = data.flatten(1)
-        data = (data - data.mean()) / (data.std() + 1e-6)
-
         u = data * (1 + self.uy) + self.ux
         v = data * (1 + self.vy) + self.vx
 
         dx = self.afactor * u * torch.sigmoid(v)
-        dy = self.mfactor * torch.tanh(data)
-        data = data * (1 + dy) + dx
-
-        return data.view(*shape)
+        dy = self.mfactor * data * torch.tanh(data)
+        return dx + dy
 
 
 class CausalSelfAttention(nn.Module):
@@ -178,7 +172,7 @@ class Block(nn.Module):
 
     def forward(self, x, ve, cos_sin, window_size):
         x = x + self.attn(norm(x), ve, cos_sin, window_size)
-        x = self.act(norm(x))
+        x = x + self.act(norm(x))
         return x
 
 
