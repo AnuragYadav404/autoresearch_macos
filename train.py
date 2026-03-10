@@ -88,10 +88,11 @@ class OptAEGV3(nn.Module):
     def forward(self, data):
         u = data * (1 + self.uy) + self.ux
         v = data * (1 + self.vy) + self.vx
-
+        
         dx = self.afactor * u * torch.sigmoid(v)
-        dy = self.mfactor * data * torch.tanh(data)
-        return dx + dy
+        log_phi = self.mfactor * torch.tanh(v)
+        phi = torch.exp(log_phi)
+        return dx * phi + data * (phi - 1)
 
 
 class CausalSelfAttention(nn.Module):
