@@ -63,15 +63,14 @@ def apply_rotary_emb(x, cos, sin):
 
 
 class OptAEGV3(nn.Module):
-    def __init__(self, width):
+    def __init__(self):
         super().__init__()
-        shape = (1, 1, width)
-        self.ux = nn.Parameter(torch.zeros(shape))
-        self.uy = nn.Parameter(torch.zeros(shape))
-        self.vx = nn.Parameter(torch.zeros(shape))
-        self.vy = nn.Parameter(torch.zeros(shape))
-        self.afactor = nn.Parameter(torch.empty(shape))
-        self.mfactor = nn.Parameter(torch.empty(shape))
+        self.ux = nn.Parameter(torch.zeros(1, 1))
+        self.uy = nn.Parameter(torch.zeros(1, 1))
+        self.vx = nn.Parameter(torch.zeros(1, 1))
+        self.vy = nn.Parameter(torch.zeros(1, 1))
+        self.afactor = nn.Parameter(torch.empty(1, 1))
+        self.mfactor = nn.Parameter(torch.empty(1, 1))
 
         self.reset_parameters()
 
@@ -81,6 +80,8 @@ class OptAEGV3(nn.Module):
             self.uy.zero_()
             self.vx.zero_()
             self.vy.zero_()
+
+            # LeCun-style small perturbation for a scalar shared nonlinearity
             self.afactor.normal_(0.0, 0.05)
             self.mfactor.normal_(0.0, 0.05)
 
@@ -91,7 +92,6 @@ class OptAEGV3(nn.Module):
         dx = self.afactor * u * torch.sigmoid(v)
         dy = self.mfactor * data * torch.tanh(data)
         return dx + dy
-
 
 
 class CausalSelfAttention(nn.Module):
@@ -168,7 +168,7 @@ class Block(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
         self.attn = CausalSelfAttention(config, layer_idx)
-        self.act = OptAEGV3(config.n_embd)
+        self.act = OptAEGV3()
 
     def forward(self, x, ve, cos_sin, window_size):
         x = x + self.attn(norm(x), ve, cos_sin, window_size)
