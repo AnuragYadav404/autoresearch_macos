@@ -90,8 +90,10 @@ class OptAEGV3(nn.Module):
         v = data * (1 + self.vy) + self.vx
 
         dx = self.afactor * u * torch.sigmoid(v)
-        dy = self.mfactor * data * torch.tanh(data)
-        return dx + dy
+        scale = self.mfactor * torch.tanh(data)
+        dy = data * scale
+        # Affine composition: translation + dilation + their second-order coupling.
+        return dx + dy + dx * scale
 
 
 class CausalSelfAttention(nn.Module):
