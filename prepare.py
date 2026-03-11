@@ -18,6 +18,7 @@ import pickle
 from multiprocessing import Pool
 
 import requests
+from tqdm import tqdm
 import pyarrow.parquet as pq
 import rustbpe
 import tiktoken
@@ -39,9 +40,8 @@ verify_macos_env()
 # ---------------------------------------------------------------------------
 
 MAX_SEQ_LEN = 2048       # context length
-TIME_BUDGET = 300        # training time budget in seconds (5 minutes)
-EVAL_TOKENS = 40 * 524288  # number of tokens for val eval
-
+TIME_BUDGET = 120        # training time budget in seconds (5 minutes) # was previously 300
+EVAL_TOKENS = 1 * 524288  # number of tokens for val eval # was previously 40 *
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -78,11 +78,21 @@ def download_single_shard(index):
         try:
             response = requests.get(url, stream=True, timeout=30)
             response.raise_for_status()
+            total_size = int(response.headers.get("content-length", 0))
             temp_path = filepath + ".tmp"
             with open(temp_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
-                        f.write(chunk)
+                with tqdm(
+                    total=total_size,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=filename,
+                    leave=False,
+                ) as bar:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+                            bar.update(len(chunk))
             os.rename(temp_path, filepath)
             print(f"  Downloaded {filename}")
             return True
@@ -384,7 +394,7 @@ def evaluate_bpb(model, tokenizer, batch_size):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare data and tokenizer for autoresearch")
-    parser.add_argument("--num-shards", type=int, default=10, help="Number of training shards to download (-1 = all). Val shard is always pinned.")
+    parser.add_argument("--num-shards", type=int, default=1, help="Number of training shards to download (-1 = all). Val shard is always pinned.")
     parser.add_argument("--download-workers", type=int, default=8, help="Number of parallel download workers")
     args = parser.parse_args()
 

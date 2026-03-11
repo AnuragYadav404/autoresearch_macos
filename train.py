@@ -499,6 +499,7 @@ FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
 # Model size
 DEPTH = 4               # number of transformer layers
 DEVICE_BATCH_SIZE = 16  # per-device batch size (reduce if OOM)
+MAX_STEPS = 5  # 0 = disabled; set e.g. 5 for smoke test
 
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
@@ -577,6 +578,8 @@ x, y, epoch = next(train_loader)  # prefetch first batch
 
 print(f"Time budget: {TIME_BUDGET}s")
 print(f"Gradient accumulation steps: {grad_accum_steps}")
+if MAX_STEPS > 0:
+    print(f"Max steps override: {MAX_STEPS}")
 
 # Schedules (all based on progress = training_time / TIME_BUDGET)
 
@@ -670,9 +673,15 @@ while True:
 
     step += 1
 
+    if MAX_STEPS > 0 and step >= MAX_STEPS:
+        print(f"Reached MAX_STEPS={MAX_STEPS}, stopping early.")
+        break
+
     # Time's up — but only stop after warmup steps so we don't count compilation
     if step > 10 and total_training_time >= TIME_BUDGET:
         break
+    else:
+        print("time is not up, not exiting")
 
 print()  # newline after \r training log
 
@@ -680,8 +689,11 @@ total_tokens = step * TOTAL_BATCH_SIZE
 
 # Final eval
 model.eval()
+print("Starting final validation (this may take a while on MPS)...", flush=True)
+t_eval_start = time.time()
 with autocast_ctx:
     val_bpb = evaluate_bpb(model, tokenizer, DEVICE_BATCH_SIZE)
+print(f"Validation complete in {time.time() - t_eval_start:.1f}s", flush=True)
 
 # Final summary
 t_end = time.time()
